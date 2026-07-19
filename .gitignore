@@ -1,0 +1,17 @@
+# Secrets and local service data
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+*.cer
+*.log
+*.sqlite
+*.sqlite3
+.env
+config.inc.php
+
+# Local backup archives
+*.zip
+*.7z
+*.bak
