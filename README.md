@@ -28,6 +28,10 @@ Windows sunucu
 
 Bu depoda gerçek alan adı, IP adresi, e-posta hesabı, parola, sertifika dosyası veya yerel bilgisayar yolu bulunmaz.
 
+## Güvenli otomasyon
+
+Tekrarlanan denetim, planlama ve dar kapsamlı Windows Güvenlik Duvarı kuralları için PowerShell yardımcıları eklendi. Router, registrar, DNS yönetim paneli ve parolalara dokunmazlar; her internet erişimi değişikliği açık onay ister. Kullanım için [AUTOMATION.md](AUTOMATION.md) dosyasına bakın.
+
 ## Başlamadan önce
 
 - Sabit yerel ağ IP'si belirleyin: ör. `<SUNUCU_LAN_IP>`.
