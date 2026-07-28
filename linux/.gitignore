@@ -1,0 +1,22 @@
+# Hosta özel ve gizli ayarlar
+.env
+
+# prepare-docker-data.sh tarafından üretilen dosyalar
+docker-data/dms/mailserver.env
+docker-data/roundcube/db.env
+docker-data/roundcube/roundcube.env
+docker-data/nginx/default.conf
+
+# Container kalıcı verileri ve üretilecek anahtarlar
+docker-data/dms/mail-data/
+docker-data/dms/mail-state/
+docker-data/dms/mail-logs/
+docker-data/dms/config/
+docker-data/dms/certs/
+docker-data/roundcube/db/
+docker-data/roundcube/config/
+docker-data/roundcube/temp/
+
+# Yerel işletim sistemi dosyaları
+.DS_Store
+Thumbs.db

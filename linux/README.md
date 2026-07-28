@@ -1,52 +1,101 @@
-# Linux ev tipi web + mail sunucusu
+# Docker ile Linux ev tipi web + e-posta sunucusu
 
-Bu paket, önceki Windows tasarımının Ubuntu/Debian karşılığıdır. Hedef sistem Ubuntu Server 24.04 LTS veya güncel Debian tabanlı bir sunucudur.
+Bu klasör, önceki Windows kurulumunun Linux karşılığıdır. Web sitesi, webmail, e-posta, spam filtreleme ve veritabanı ayrı Docker container'ları olarak çalışır. Hedef işletim sistemi Ubuntu/Debian tabanlı bir Linux ve Docker Compose V2'dir.
 
-## Windows’tan Linux’a karşılıklar
+## Güvenlik sınırı
 
-| Önceki bileşen | Linux karşılığı |
-| --- | --- |
-| Apache / WAMP | Nginx + PHP-FPM |
-| hMailServer | Postfix + Dovecot |
-| Spam filtreleme | Rspamd + Redis |
-| Roundcube | Roundcube (Nginx üzerinde) |
-| Technitium DNS | DNS’i registrar/sağlayıcıda tutmak; gerekiyorsa Technitium Linux veya BIND9 |
+- Betikler Linux'a paket kurmaz; `sudo`, `apt`, `systemctl` veya Windows ayarı çalıştırmaz.
+- Varsayılan port bağları yalnızca `127.0.0.1` üzerindedir. Router'a veya internete açmak için `.env` içinde bunu bilinçli olarak değiştirmeniz gerekir.
+- `docker compose down` verileri silmez. **`down -v` komutunu yedek almadan kullanmayın.**
+- Gerçek alan adı, IP, parola, API anahtarı, DKIM/SSL özel anahtarı depoda yoktur. Üretilecek gizli dosyalar `.gitignore` ile korunur.
+- Docker Engine/Docker Desktop'ı işletim sistemine kurmak ayrı bir adımdır; kurulumunu yalnızca Docker'ın resmi belgelerinden ve kendi onayınızla yapın.
 
-Mail sunucusu için alan adı, sunucunun sabit LAN adresi, dışarıdan erişilebilen genel IP, PTR/rDNS ve ISP’nin 25 numaralı SMTP portuna izin vermesi gerekir. Bunlardan biri yoksa web sitesi çalışabilir ama mail teslimatı güvenilir olmayabilir.
+Bu düzen, host işletim sistemindeki posta/web servislerini değiştirmez. Yine de Docker'ın kendisi sistem kaynağı kullandığı için önce boş disk, RAM ve Docker daemon durumunu kontrol edin.
 
-Bu klasördeki betikler gerçek alan adı, parola, DKIM özel anahtarı veya sertifika özel anahtarı içermez. Betikler Linux makinesinde çalıştırılmak üzere hazırlanmıştır; bu Windows çalışma alanında çalıştırılmamıştır.
+## İçerik
 
-## Hızlı başlangıç
+| Bileşen | Container/image | Görevi |
+| --- | --- | --- |
+| Mail sunucusu | Docker Mailserver `15.1.0` | Postfix, Dovecot, Rspamd ve hesap yönetimi |
+| Webmail | Roundcube `1.7.2-apache` | IMAP/SMTP web arayüzü |
+| Veritabanı | MariaDB `11.4` | Roundcube ayar/verileri |
+| Web sunucusu | Nginx `1.27-alpine` | Statik site ve `/webmail/` ters proxy |
+
+Image etiketleri kasıtlı olarak sabittir; `latest` kullanmak yerine sürümü kontrollü şekilde güncelleyin.
+
+## Ön koşullar
+
+1. Ubuntu/Debian tabanlı bir Linux makine.
+2. Docker Engine ve Docker Compose V2. `docker compose version` çıktısı alınabilmeli.
+3. Gerçek e-posta kullanımı için alan adı, sabit/genel IP, PTR (rDNS) ve ISP'nin gerekli portlara izin vermesi.
+
+Docker'ı kurmadan önce [Docker'ın resmi kurulum belgelerini](https://docs.docker.com/engine/install/) izleyin. Bu depodaki betikler Docker kurmaz.
+
+## Güvenli yerel başlangıç
+
+`linux` klasörünün içindeyken:
 
 ```bash
-cp config/server.env.example config/server.env
-nano config/server.env
+cp .env.example .env
+nano .env
 chmod 700 scripts/*.sh
 
-sudo ./scripts/install-linux.sh config/server.env
-sudo ./scripts/configure-mail-baseline.sh config/server.env
-sudo ./scripts/configure-web-site.sh config/server.env
-sudo ./scripts/audit-linux.sh config/server.env
+# Örnek alan adını kendi alan adınızla değiştirdikten sonra:
+./scripts/prepare-docker-data.sh --apply
+
+# Bu komut yalnızca yapılandırmayı doğrular, container başlatmaz:
+./scripts/docker-up.sh
+
+# Image indirip container'ları başlatmak için açık onay gerekir:
+./scripts/docker-up.sh --apply
 ```
 
-`server.env` içindeki örnek değerleri gerçek değerlerle değiştirmeden betikleri çalıştırmayın. `install-linux.sh` paketleri kurar; diğer iki yapılandırma betiği yalnızca yerel servis ayarlarını uygular.
+`.env` içinde en az `MAIL_DOMAIN` ve `MAIL_HOSTNAME` değerlerini değiştirin. `example.test` örneğiyle gerçek posta gönderimi yapılmaz. `prepare-docker-data.sh` ilk çalışmada rastgele MariaDB parolaları üretir; mevcut gizli dosyaların üzerine yazmaz.
 
-## Ağ ve DNS
+Container'lar başladıktan sonra:
 
-Router’da yalnızca gerçekten kullanılan portları sunucunun LAN adresine yönlendirin:
+- Web sitesi: `http://127.0.0.1:8088/`
+- Roundcube: `http://127.0.0.1:8088/webmail/`
 
-| Hizmet | Port | Not |
+İlk posta hesabını etkileşimli ve parolayı ekrana göstermeden oluşturun:
+
+```bash
+./scripts/mail-account.sh
+```
+
+E-posta hesabı oluşturma işleminden sonra DMS container'ının durumunu kontrol edin:
+
+```bash
+./scripts/docker-check.sh
+```
+
+Durdurmak için:
+
+```bash
+./scripts/docker-down.sh       # sadece ne yapılacağını gösterir
+./scripts/docker-down.sh --apply
+```
+
+Bu işlem container'ları durdurur; `docker-data/` içindeki posta ve veritabanı verilerini silmez.
+
+## Dışarı açmadan önce
+
+İlk testleri localhost'ta yapın. Gerçek istemciler veya internet için `.env` içindeki `MAIL_BIND_IP` değerini yalnızca router/firewall kurallarını kontrol ettikten sonra `0.0.0.0` yapın. Web arayüzünü dışarı açacaksanız `WEB_BIND_IP` değerini de ayrıca değiştirin ve TLS'li bir reverse proxy kullanın.
+
+Gereken yönlendirmeler genellikle şöyledir:
+
+| Hizmet | TCP portu | Not |
 | --- | ---: | --- |
-| HTTP | TCP 80 | Sertifika doğrulama ve HTTPS yönlendirmesi |
-| HTTPS | TCP 443 | Web sitesi ve webmail |
-| SMTP | TCP 25 | Sunucular arası posta; ISP engelleyebilir |
-| Submission | TCP 587 | Kullanıcıların TLS’li posta gönderimi |
-| IMAPS | TCP 993 | TLS’li IMAP |
-| SMTPS | TCP 465 | İsteğe bağlı uyumluluk portu |
+| SMTP | 25 | Sunucular arası posta; ISP sıkça engeller |
+| Submission | 587 | Kullanıcıların TLS'li gönderimi |
+| IMAPS | 993 | TLS'li posta okuma |
+| HTTP/HTTPS | 80/443 | Web sitesi ve webmail; bu örnek HTTP'yi localhost'ta tutar |
 
-RDP/SSH yönetim portu, MariaDB, phpMyAdmin, Rspamd paneli ve DNS yönetim panelini internete açmayın. DNS’i kendi sunucunuzdan yetkili olarak yayınlayacaksanız TCP/UDP 53’ü ayrıca planlayın; açık recursive resolver çalıştırmayın.
+MariaDB, Roundcube ve yönetim arayüzleri internete port olarak yayınlanmaz. Router'da yalnızca gerçekten kullandığınız portları yönlendirin. SSH/RDP'yi ve Docker daemon soketini internete açmayın.
 
-Temel dış DNS kayıtları:
+## DNS ve teslim edilebilirlik
+
+Gerçek alan adınız için DNS sağlayıcısında en az şu kayıtları planlayın:
 
 ```text
 @       A       <GENEL_IP>
@@ -56,62 +105,26 @@ mail    A       <GENEL_IP>
 _dmarc  TXT     v=DMARC1; p=none; rua=mailto:dmarc@<ALAN_ADI>
 ```
 
-DKIM anahtarını Rspamd oluşturduktan sonra onun verdiği TXT kaydını ekleyin. PTR/rDNS kaydı `mail.<ALAN_ADI>` ile uyumlu olmalıdır; bunu genellikle ISP değiştirir.
+DKIM anahtarını DMS/Rspamd container'ında üretip yalnızca gereken TXT kaydını DNS'e ekleyin. Özel anahtarı repoya koymayın. PTR kaydı `mail.<ALAN_ADI>` ile uyumlu olmalı; bunu genellikle internet sağlayıcısı değiştirir. CGNAT veya kapalı TCP/25 varsa ev bağlantısından güvenilir gelen posta servisi çalışmayabilir; bu durumda bir SMTP relay gerekir.
 
-## TLS ve web sitesi
+## TLS
 
-DNS kayıtları yayıldıktan ve TCP 80 dışarıdan erişilebilir olduktan sonra:
+Örnek yapılandırma `MAIL_SSL_TYPE=self-signed` ile yerel test içindir. Bu sertifika tarayıcı ve posta istemcisinde uyarı üretir. İnternete açmadan önce DMS'in [TLS belgelerini](https://docker-mailserver.github.io/docker-mailserver/latest/config/security/ssl/) izleyip gerçek sertifika kullanın. Sertifika/özel anahtar dosyalarını git'e eklemeyin.
 
-```bash
-sudo certbot --nginx -d <ALAN_ADI> -d mail.<ALAN_ADI>
-```
+## Yedekleme ve güncelleme
 
-Web sitesi kökü varsayılan olarak `/var/www/<ALAN_ADI>/public` olur. Sertifika yenilemesini kurduktan sonra şu testi yapın:
+Posta kutuları ve Roundcube verileri `docker-data/` altındadır. Container'ları durdurup bu klasörü güvenli bir diske yedekleyin; `.env` ve `*.env` dosyaları parola içerir, yedek erişimini kısıtlayın. Güncellemeden önce yedek alın, image etiketlerini tek tek değiştirin ve ardından:
 
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
-sudo certbot renew --dry-run
+./scripts/docker-up.sh
+./scripts/docker-up.sh --apply
 ```
 
-## Roundcube
+Resmi image ve sürüm belgeleri:
 
-Roundcube’un güncel resmi “complete” paketini indirin. Güncel sürümlerde Nginx document root’u Roundcube dizininin `public_html` altı olmalıdır. Kurulumdan sonra `installer` dizinini tamamen silin; `/config`, `/temp` ve `/logs` yollarını webden erişilemez bırakın. Roundcube veritabanını ve uygulama gizli anahtarını yalnızca yerel sunucuda tutun.
+- [Docker Mailserver kullanım ve Compose rehberi](https://docker-mailserver.github.io/docker-mailserver/latest/usage/)
+- [Roundcube resmi Docker image değişkenleri](https://hub.docker.com/r/roundcube/roundcubemail)
+- [Docker Compose ortam değişkenleri](https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/)
+- [Compose healthcheck ve başlangıç sırası](https://docs.docker.com/compose/how-tos/startup-order/)
 
-Roundcube’un kendi kurulum belgesindeki sürüm notlarını izleyin: <https://github.com/roundcube/roundcubemail/wiki/Installation>
-
-## Mail yapılandırmasının sınırları
-
-`configure-mail-baseline.sh` tek alan adlı, sistem kullanıcılarının Maildir kutularını kullanan güvenli bir başlangıç yapılandırması verir. Çok alan adlı sanal posta kutuları, web üzerinden kullanıcı yönetimi veya yüksek hacimli üretim için ayrı bir sanal kullanıcı veritabanı ve daha kapsamlı bir dağıtım (ör. Mailcow) tercih edilmelidir.
-
-Rspamd paneli varsayılan olarak dışarı açılmaz. Yönetici parolası hash’i şu komutla üretilebilir:
-
-```bash
-sudo rspamadm pw
-```
-
-Hash’i `/etc/rspamd/local.d/worker-controller.inc` içine manuel ve güvenli şekilde ekleyip yapılandırmayı doğrulayın:
-
-```bash
-sudo rspamadm configtest
-sudo systemctl restart rspamd
-```
-
-## Doğrulama
-
-```bash
-sudo postfix check
-sudo doveconf -n
-sudo rspamadm configtest
-sudo nginx -t
-sudo ss -lntup
-sudo ./scripts/audit-linux.sh config/server.env
-```
-
-Farklı bir mobil internet bağlantısından web, IMAPS ve SMTP submission testleri yapın. Ayrıca dışarıya mail gönderme/alma, SPF/DKIM/DMARC, TLS sertifika adı ve açık relay kontrolü yapın.
-
-## Kaynaklar
-
-- Ubuntu Server: [Postfix kurulumu](https://ubuntu.com/server/docs/install-and-configure-postfix/) ve [mail servisleri](https://documentation.ubuntu.com/server/how-to/mail-services/)
-- Rspamd: [kurulum](https://docs.rspamd.com/downloads/) ve [Postfix entegrasyonu](https://docs.rspamd.com/getting-started/)
-- Roundcube: [resmî kurulum rehberi](https://github.com/roundcube/roundcubemail/wiki/Installation)
+Bu çalışma alanında Docker daemon bulunmadığı için image'lar çekilerek çalıştırılmadı; dosyalar statik olarak doğrulanmıştır. Gerçek makinede önce doğrulama komutunu (`docker-up.sh` argümansız) çalıştırın.
