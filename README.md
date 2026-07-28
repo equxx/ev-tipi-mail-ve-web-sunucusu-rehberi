@@ -28,6 +28,10 @@ Windows sunucu
 
 Bu depoda gerçek alan adı, IP adresi, e-posta hesabı, parola, sertifika dosyası veya yerel bilgisayar yolu bulunmaz.
 
+## Linux + Docker alternatifi
+
+Windows yerine Ubuntu/Debian üzerinde Docker Compose kullanmak isteyenler için Türkçe, host'a paket kurmayan ve varsayılan olarak yalnızca localhost'a bağlanan ayrı kurulum [linux/README.md](linux/README.md) dosyasındadır. Bu yol, Windows'taki servisleri değiştirmez; tüm web, webmail, posta ve veritabanı bileşenlerini container olarak çalıştırır.
+
 ## Güvenli otomasyon
 
 Tekrarlanan denetim, planlama ve dar kapsamlı Windows Güvenlik Duvarı kuralları için PowerShell yardımcıları eklendi. Router, registrar, DNS yönetim paneli ve parolalara dokunmazlar; her internet erişimi değişikliği açık onay ister. Kullanım için [AUTOMATION.md](AUTOMATION.md) dosyasına bakın.
